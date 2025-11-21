@@ -4,8 +4,10 @@
     "version": "1.0",
     "description": "Summarize the current page using Jina.ai and OpenAI.",
     "permissions": [
+        "storage",
         "activeTab",
-        "storage"
+        "scripting",
+        "clipboardWrite"
     ],
     "host_permissions": [
         "https://r.jina.ai/*",

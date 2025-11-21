@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveKeyBtn = document.getElementById('saveKeyBtn');
     const summarizeBtn = document.getElementById('summarizeBtn');
     const summarizeAgainBtn = document.getElementById('summarizeAgainBtn');
+    const copyBtn = document.getElementById('copyBtn');
     const manageKeyBtn = document.getElementById('manageKeyBtn');
     const loadingDiv = document.getElementById('loading');
     const resultDiv = document.getElementById('result');
@@ -50,12 +51,53 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    let currentData = null;
+
     summarizeBtn.addEventListener('click', () => {
         performSummarization(false);
     });
 
     summarizeAgainBtn.addEventListener('click', () => {
         performSummarization(true);
+    });
+
+    copyBtn.addEventListener('click', async () => {
+        if (!currentData) return;
+
+        const summaryText = currentData.summary || '';
+        const takeawaysText = currentData.takeaways || '';
+
+        // Plain text (Markdown)
+        const plainText = `### Summary\n${summaryText}\n\n### Key Takeaways\n${takeawaysText}`;
+
+        // HTML
+        const htmlContent = `
+            <h3>Summary</h3>
+            ${marked.parse(summaryText)}
+            <h3>Key Takeaways</h3>
+            ${marked.parse(takeawaysText)}
+        `;
+
+        try {
+            const textBlob = new Blob([plainText], { type: 'text/plain' });
+            const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+
+            await navigator.clipboard.write([
+                new ClipboardItem({
+                    'text/plain': textBlob,
+                    'text/html': htmlBlob
+                })
+            ]);
+
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = "✅ Copied!";
+            setTimeout(() => {
+                copyBtn.textContent = originalText;
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+            showError('Failed to copy to clipboard');
+        }
     });
 
     let abortController = null;
@@ -66,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resultDiv.classList.add('hidden');
         summarizeBtn.classList.add('hidden'); // Ensure this is hidden
         summarizeAgainBtn.classList.add('hidden');
+        copyBtn.classList.add('hidden');
 
         // Create new AbortController
         if (abortController) {
@@ -178,15 +221,18 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingDiv.classList.remove('hidden');
         summarizeBtn.disabled = true;
         summarizeAgainBtn.disabled = true;
+        copyBtn.disabled = true;
     }
 
     function hideLoading() {
         loadingDiv.classList.add('hidden');
         summarizeBtn.disabled = false;
         summarizeAgainBtn.disabled = false;
+        copyBtn.disabled = false;
     }
 
     function displaySummary(data, timestamp) {
+        currentData = data;
         // Parse markdown using marked
         summaryBody.innerHTML = marked.parse(data.summary || '');
         takeawaysBody.innerHTML = marked.parse(data.takeaways || '');
@@ -203,6 +249,12 @@ document.addEventListener('DOMContentLoaded', () => {
         resultDiv.classList.remove('hidden');
         summarizeBtn.classList.add('hidden'); // Hide original summarize button
         summarizeAgainBtn.classList.remove('hidden'); // Show summarize again
+
+        if (data.summary || data.takeaways) {
+            copyBtn.classList.remove('hidden'); // Show copy button only if content exists
+        } else {
+            copyBtn.classList.add('hidden');
+        }
     }
 
     function showError(msg) {
