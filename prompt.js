@@ -1,10 +1,11 @@
 const SUMMARY_PROMPT = `
 Please summarize this article. Return the response in JSON format.
 
-IMPORTANT: 
-- Detect the language of the article content.
-- Return the summary in the SAME language as the article.
-- If the article is in Traditional Chinese (繁體中文), use Taiwanese Traditional Chinese (台灣正體中文) for the summary.
+CRITICAL INSTRUCTION:
+- You MUST detect the language of the article content.
+- You MUST return the summary and takeaways in the STRICTLY SAME language as the article.
+- Do NOT translate to English unless the article is in English.
+- If the article is in Traditional Chinese (繁體中文), use Taiwanese Traditional Chinese (台灣正體中文).
 
 Structure:
 {
