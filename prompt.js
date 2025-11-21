@@ -8,8 +8,8 @@ IMPORTANT:
 
 Structure:
 {
-  "summary": "<markdown string, around 100 words>",
-  "takeaways": "<markdown string, 5-10 bullet points>"
+  "summary": "<markdown string, not array. use \\n for line breaks. around 100 words>",
+  "takeaways": "<markdown string, not array. use \\n for line breaks. 5-10 bullet points>"
 }
 
 Article Content:

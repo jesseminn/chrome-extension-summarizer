@@ -188,8 +188,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function displaySummary(data, timestamp) {
         // Parse markdown using marked
-        summaryBody.innerHTML = marked.parse(data.summary);
-        takeawaysBody.innerHTML = marked.parse(data.takeaways);
+        summaryBody.innerHTML = marked.parse(data.summary || '');
+        takeawaysBody.innerHTML = marked.parse(data.takeaways || '');
 
         const timestampDiv = document.getElementById('timestamp');
         if (timestamp) {
