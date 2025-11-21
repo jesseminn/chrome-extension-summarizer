@@ -1,0 +1,17 @@
+{
+    "manifest_version": 3,
+    "name": "Page Summarizer",
+    "version": "1.0",
+    "description": "Summarize the current page using Jina.ai and OpenAI.",
+    "permissions": [
+        "activeTab",
+        "storage"
+    ],
+    "host_permissions": [
+        "https://r.jina.ai/*",
+        "https://api.openai.com/*"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    }
+}

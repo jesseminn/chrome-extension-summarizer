@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Summarizer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+  <div class="container">
+    <h1>Page Summarizer</h1>
+
+    <div id="apiKeySection">
+      <label for="apiKey">OpenAI API Key</label>
+      <input type="password" id="apiKey" placeholder="sk-..." />
+      <button id="saveKeyBtn">Save Key</button>
+    </div>
+
+    <div id="mainSection" class="hidden">
+      <div class="controls">
+        <button id="summarizeBtn" class="primary-btn">Summarize Page</button>
+        <button id="summarizeAgainBtn" class="primary-btn hidden"
+          style="margin-top: 10px; background-color: #9b59b6;">Summarize Again</button>
+      </div>
+
+      <div id="loading" class="hidden">
+        <div class="spinner"></div>
+        <p id="loadingText">Fetching and summarizing...</p>
+      </div>
+
+      <div id="result" class="hidden">
+        <h3>Summary</h3>
+        <div id="timestamp"></div>
+        <div id="summaryContent"></div>
+      </div>
+
+      <div id="error" class="hidden"></div>
+
+      <button id="manageKeyBtn" class="text-btn" style="margin-top: 20px; width: 100%; text-align: center;">Manage API
+        Key</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+
+</html>
