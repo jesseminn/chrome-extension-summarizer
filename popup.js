@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const manageKeyBtn = document.getElementById('manageKeyBtn');
     const loadingDiv = document.getElementById('loading');
     const resultDiv = document.getElementById('result');
-    const summaryContent = document.getElementById('summaryContent');
+    const summaryBody = document.getElementById('summaryBody');
+    const takeawaysBody = document.getElementById('takeawaysBody');
     const errorDiv = document.getElementById('error');
 
     const loadingText = document.getElementById('loadingText');
@@ -84,8 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!forceRefresh) {
                 // Try to get from cache first
                 const cached = await getFromCache(cacheKey);
-                if (cached && cached.summary) {
-                    displaySummary(cached.summary, cached.timestamp);
+                if (cached && cached.data) {
+                    displaySummary(cached.data, cached.timestamp);
                     hideLoading();
                     return;
                 }
@@ -115,11 +116,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 try {
                     updateLoadingText("Requiring summary...");
-                    const summary = await summarizeWithOpenAI(apiKey, rawText, signal);
+                    const data = await summarizeWithOpenAI(apiKey, rawText, signal);
                     const timestamp = Date.now();
                     // Cache the result
-                    chrome.storage.local.set({ [cacheKey]: { summary, timestamp } });
-                    displaySummary(summary, timestamp);
+                    chrome.storage.local.set({ [cacheKey]: { data, timestamp } });
+                    displaySummary(data, timestamp);
                 } catch (err) {
                     if (err.name === 'AbortError') {
                         // Do nothing or show aborted state? 
@@ -185,8 +186,10 @@ document.addEventListener('DOMContentLoaded', () => {
         summarizeAgainBtn.disabled = false;
     }
 
-    function displaySummary(text, timestamp) {
-        summaryContent.innerHTML = text;
+    function displaySummary(data, timestamp) {
+        // Parse markdown using marked
+        summaryBody.innerHTML = marked.parse(data.summary);
+        takeawaysBody.innerHTML = marked.parse(data.takeaways);
 
         const timestampDiv = document.getElementById('timestamp');
         if (timestamp) {
@@ -230,8 +233,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tab && tab.url) {
             const cacheKey = `summary_${tab.url}`;
             const cached = await getFromCache(cacheKey);
-            if (cached && cached.summary) {
-                displaySummary(cached.summary, cached.timestamp);
+            if (cached && cached.data) {
+                displaySummary(cached.data, cached.timestamp);
             } else {
                 // No cache, auto-trigger summary
                 performSummarization(false);
@@ -266,7 +269,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         role: "user",
                         content: prompt
                     }
-                ]
+                ],
+                response_format: { type: "json_object" }
             }),
             signal: signal
         });
@@ -277,6 +281,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const data = await response.json();
-        return data.choices[0].message.content;
+        try {
+            return JSON.parse(data.choices[0].message.content);
+        } catch (e) {
+            throw new Error("Failed to parse OpenAI response as JSON");
+        }
     }
 });

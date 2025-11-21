@@ -32,17 +32,21 @@
       </div>
 
       <div id="result" class="hidden">
-        <h3>Summary</h3>
         <div id="timestamp"></div>
-        <div id="summaryContent"></div>
+        <h3>Summary</h3>
+        <div id="summaryBody" class="markdown-content"></div>
+        <h3>Key Takeaways</h3>
+        <div id="takeawaysBody" class="markdown-content"></div>
       </div>
 
       <div id="error" class="hidden"></div>
-
-      <button id="manageKeyBtn" class="text-btn" style="margin-top: 20px; width: 100%; text-align: center;">Manage API
-        Key</button>
+    </div>
+    
+    <div class="footer">
+      <button id="manageKeyBtn" class="text-btn" style="margin-top: 20px; width: 100%; text-align: center;">Manage API Key</button>
     </div>
   </div>
+  <script src="marked.min.js"></script>
   <script src="prompt.js"></script>
   <script src="popup.js"></script>
 </body>
