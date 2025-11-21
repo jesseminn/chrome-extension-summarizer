@@ -123,7 +123,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Cannot get current tab URL.');
             }
 
-            const cacheKey = `summary_${tab.url}`;
+            const cleanedUrl = cleanUrl(tab.url);
+            const cacheKey = `summary_${cleanedUrl}`;
 
             if (!forceRefresh) {
                 // Try to get from cache first
@@ -283,7 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
     async function checkCache() {
         const tab = await getCurrentTab();
         if (tab && tab.url) {
-            const cacheKey = `summary_${tab.url}`;
+            const cleanedUrl = cleanUrl(tab.url);
+            const cacheKey = `summary_${cleanedUrl}`;
             const cached = await getFromCache(cacheKey);
             if (cached && cached.data) {
                 displaySummary(cached.data, cached.timestamp);
@@ -291,6 +293,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 // No cache, auto-trigger summary
                 performSummarization(false);
             }
+        }
+    }
+
+    function cleanUrl(url) {
+        try {
+            const urlObj = new URL(url);
+            const params = new URLSearchParams(urlObj.search);
+            const keysToDelete = [];
+
+            // Common tracking parameters to remove
+            const trackingParams = [
+                '_bhlid',  // Beehiiv
+                'fbclid',  // Facebook
+                'gclid',   // Google Ads
+                'msclkid', // Microsoft Ads
+                'dclid',   // DoubleClick
+                'mc_eid',  // Mailchimp
+                'mc_cid',  // Mailchimp
+                'yclid',   // Yandex
+                '_hsenc',  // HubSpot
+                '_hsmi'    // HubSpot
+            ];
+
+            for (const key of params.keys()) {
+                if (key.startsWith('utm_') || trackingParams.includes(key)) {
+                    keysToDelete.push(key);
+                }
+            }
+            keysToDelete.forEach(key => params.delete(key));
+            urlObj.search = params.toString();
+            return urlObj.toString();
+        } catch (e) {
+            return url;
         }
     }
 
