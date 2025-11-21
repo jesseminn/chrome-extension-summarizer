@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
         hideError();
         showLoading();
         resultDiv.classList.add('hidden');
+        summarizeBtn.classList.add('hidden'); // Ensure this is hidden
         summarizeAgainBtn.classList.add('hidden');
 
         // Create new AbortController
@@ -138,9 +139,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (err.name === 'AbortError') {
                 console.log('Fetch aborted');
                 hideLoading(); // Ensure loading is hidden on abort
+                summarizeBtn.classList.remove('hidden'); // Allow retry
             } else {
                 showError(err.message);
                 hideLoading();
+                summarizeBtn.classList.remove('hidden'); // Allow retry
             }
         }
     }
@@ -230,10 +233,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cached && cached.summary) {
                 displaySummary(cached.summary, cached.timestamp);
             } else {
-                // Reset UI state if no cache
-                summarizeBtn.classList.remove('hidden');
-                summarizeAgainBtn.classList.add('hidden');
-                resultDiv.classList.add('hidden');
+                // No cache, auto-trigger summary
+                performSummarization(false);
             }
         }
     }
