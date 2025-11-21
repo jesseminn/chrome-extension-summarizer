@@ -165,6 +165,21 @@ button {
   text-align: left;
 }
 
+.cancel-btn {
+  color: #95a5a6;
+  font-size: 12px;
+  margin-top: 8px;
+  text-decoration: none;
+  padding: 4px 8px;
+}
+
+.cancel-btn:hover {
+  color: #7f8c8d;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
 #error {
   margin-top: 15px;
   color: #e74c3c;

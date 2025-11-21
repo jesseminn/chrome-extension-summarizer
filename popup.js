@@ -57,11 +57,20 @@ document.addEventListener('DOMContentLoaded', () => {
         performSummarization(true);
     });
 
+    let abortController = null;
+
     async function performSummarization(forceRefresh) {
         hideError();
         showLoading();
         resultDiv.classList.add('hidden');
         summarizeAgainBtn.classList.add('hidden');
+
+        // Create new AbortController
+        if (abortController) {
+            abortController.abort();
+        }
+        abortController = new AbortController();
+        const signal = abortController.signal;
 
         try {
             const tab = await getCurrentTab();
@@ -81,11 +90,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            updateLoadingText("Requiring raw content..."); // Added this line
+            updateLoadingText("Requiring raw content...");
             const jinaUrl = `https://r.jina.ai/${encodeURIComponent(tab.url)}`;
 
             // Fetch content from Jina
-            const jinaResponse = await fetch(jinaUrl);
+            const jinaResponse = await fetch(jinaUrl, { signal });
             if (!jinaResponse.ok) {
                 throw new Error(`Failed to fetch content from Jina.ai: ${jinaResponse.statusText}`);
             }
@@ -93,30 +102,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Get API Key
             chrome.storage.local.get(['openaiApiKey'], async (result) => {
+                if (signal.aborted) return; // Check if aborted before proceeding
+
                 const apiKey = result.openaiApiKey;
                 if (!apiKey) {
                     showError('API Key not found. Please set it again.');
                     showApiKeySection();
+                    hideLoading(); // Ensure loading is hidden if we return early
                     return;
                 }
 
                 try {
-                    updateLoadingText("Requiring summary..."); // Added this line
-                    const summary = await summarizeWithOpenAI(apiKey, rawText);
+                    updateLoadingText("Requiring summary...");
+                    const summary = await summarizeWithOpenAI(apiKey, rawText, signal);
                     const timestamp = Date.now();
                     // Cache the result
                     chrome.storage.local.set({ [cacheKey]: { summary, timestamp } });
                     displaySummary(summary, timestamp);
                 } catch (err) {
-                    showError(`OpenAI Error: ${err.message}`);
+                    if (err.name === 'AbortError') {
+                        // Do nothing or show aborted state? 
+                        // Usually just resetting UI is fine, or showing "Aborted"
+                        console.log('Fetch aborted');
+                    } else {
+                        showError(`OpenAI Error: ${err.message}`);
+                    }
                 } finally {
-                    hideLoading();
+                    if (!signal.aborted) {
+                        hideLoading();
+                    }
                 }
             });
 
         } catch (err) {
-            showError(err.message);
-            hideLoading();
+            if (err.name === 'AbortError') {
+                console.log('Fetch aborted');
+                hideLoading(); // Ensure loading is hidden on abort
+            } else {
+                showError(err.message);
+                hideLoading();
+            }
         }
     }
 
@@ -213,23 +238,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function summarizeWithOpenAI(apiKey, text) {
-        const prompt = `
-Please summarize this article. Return the response in HTML format (no markdown code blocks, just raw HTML tags).
+    const abortBtn = document.getElementById('abortBtn');
 
-Structure:
-<p>[Summary in 100 words]</p>
-<hr>
-<h3>Key Takeaways:</h3>
-<ul>
-  <li>[Takeaway 1]</li>
-  <li>[Takeaway 2]</li>
-  ...
-</ul>
+    abortBtn.addEventListener('click', () => {
+        if (abortController) {
+            abortController.abort();
+            hideLoading();
+            // Optionally show a message
+            // showError("Summarization aborted.");
+        }
+    });
 
-Article Content:
-${text.substring(0, 15000)} 
-`;
+    async function summarizeWithOpenAI(apiKey, text, signal) {
+        const prompt = `${SUMMARY_PROMPT}${text.substring(0, 15000)}`;
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -245,7 +266,8 @@ ${text.substring(0, 15000)}
                         content: prompt
                     }
                 ]
-            })
+            }),
+            signal: signal
         });
 
         if (!response.ok) {
