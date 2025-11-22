@@ -2,10 +2,11 @@ const SUMMARY_PROMPT = `
 Please summarize this article. Return the response in JSON format.
 
 CRITICAL INSTRUCTION:
-- You MUST detect the language of the article content.
-- You MUST return the summary and takeaways in the STRICTLY SAME language as the article.
-- Do NOT translate to English unless the article is in English.
-- If the article is in Traditional Chinese (繁體中文), use Taiwanese Traditional Chinese (台灣正體中文).
+- First, detect the language of the provided article content.
+- If the detected language is English, the summary and takeaways MUST be in English.
+- If the detected language is Traditional Chinese (繁體中文), the summary and takeaways MUST be in Taiwanese Traditional Chinese (台灣正體中文).
+- For any other language, the summary and takeaways MUST be in the SAME language as the article.
+- Do NOT translate the content to a different language (except for the specific Traditional Chinese handling mentioned above).
 
 Structure:
 {
