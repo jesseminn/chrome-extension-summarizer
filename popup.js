@@ -1,54 +1,144 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const apiKeySection = document.getElementById('apiKeySection');
+    const settingsSection = document.getElementById('settingsSection');
     const mainSection = document.getElementById('mainSection');
+
     const apiKeyInput = document.getElementById('apiKey');
-    const saveKeyBtn = document.getElementById('saveKeyBtn');
+    const githubTokenInput = document.getElementById('githubToken');
+    const gistIdInput = document.getElementById('gistId');
+
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const clearCacheBtn = document.getElementById('clearCacheBtn');
+    const openSettingsBtn = document.getElementById('openSettingsBtn');
+
     const summarizeBtn = document.getElementById('summarizeBtn');
     const summarizeAgainBtn = document.getElementById('summarizeAgainBtn');
     const copyBtn = document.getElementById('copyBtn');
-    const manageKeyBtn = document.getElementById('manageKeyBtn');
     const loadingDiv = document.getElementById('loading');
     const resultDiv = document.getElementById('result');
     const summaryBody = document.getElementById('summaryBody');
     const takeawaysBody = document.getElementById('takeawaysBody');
     const errorDiv = document.getElementById('error');
-
     const loadingText = document.getElementById('loadingText');
 
-    // Check for existing API key
-    chrome.storage.local.get(['openaiApiKey'], (result) => {
-        if (result.openaiApiKey) {
+    // Check for all required keys
+    chrome.storage.local.get(['openaiApiKey', 'githubToken', 'gistId'], (result) => {
+        if (result.openaiApiKey && result.githubToken && result.gistId) {
             showMainSection();
             checkCache();
         } else {
-            showApiKeySection();
+            showSettings();
         }
     });
 
-    saveKeyBtn.addEventListener('click', () => {
-        const key = apiKeyInput.value.trim();
-        if (key) {
-            chrome.storage.local.set({ openaiApiKey: key }, () => {
+    // Input validation and Draft Saving
+    function handleInput() {
+        const apiKey = apiKeyInput.value.trim();
+        const token = githubTokenInput.value.trim();
+        const gistId = gistIdInput.value.trim();
+
+        // Save drafts
+        chrome.storage.local.set({
+            draft_openaiApiKey: apiKey,
+            draft_githubToken: token,
+            draft_gistId: gistId
+        });
+
+        if (apiKey && token && gistId) {
+            saveSettingsBtn.disabled = false;
+        } else {
+            saveSettingsBtn.disabled = true;
+        }
+
+        if (token && gistId) {
+            clearCacheBtn.classList.remove('hidden');
+        } else {
+            clearCacheBtn.classList.add('hidden');
+        }
+    }
+
+    apiKeyInput.addEventListener('input', handleInput);
+    githubTokenInput.addEventListener('input', handleInput);
+    gistIdInput.addEventListener('input', handleInput);
+
+    openSettingsBtn.addEventListener('click', () => {
+        showSettings();
+    });
+
+    saveSettingsBtn.addEventListener('click', async () => {
+        const apiKey = apiKeyInput.value.trim();
+        const token = githubTokenInput.value.trim();
+        const gistId = gistIdInput.value.trim();
+
+        if (!apiKey || !token || !gistId) {
+            showError("All fields are required.");
+            return;
+        }
+
+        saveSettingsBtn.disabled = true;
+        saveSettingsBtn.textContent = "Saving...";
+        hideError();
+
+        try {
+            // Save config
+            await chrome.storage.local.set({
+                openaiApiKey: apiKey,
+                githubToken: token,
+                gistId: gistId
+            });
+
+            // Clear drafts on successful save
+            await chrome.storage.local.remove(['draft_openaiApiKey', 'draft_githubToken', 'draft_gistId']);
+
+            // Sync immediately
+            await syncWithGist(token, gistId);
+
+            saveSettingsBtn.textContent = "✅ Saved!";
+            setTimeout(() => {
                 showMainSection();
                 checkCache();
-            });
+                saveSettingsBtn.textContent = "Save Settings";
+                saveSettingsBtn.disabled = false;
+            }, 1500);
+        } catch (err) {
+            showError(err.message);
+            saveSettingsBtn.textContent = "Save Settings";
+            saveSettingsBtn.disabled = false;
         }
     });
 
-    manageKeyBtn.addEventListener('click', () => {
-        chrome.storage.local.get(['openaiApiKey'], (result) => {
-            if (result.openaiApiKey) {
-                // Has key, so this is "Remove API Key"
-                chrome.storage.local.remove(['openaiApiKey'], () => {
-                    apiKeyInput.value = '';
-                    showApiKeySection();
-                    manageKeyBtn.textContent = "Add API Key"; // Should not be visible in main section usually, but for safety
-                });
-            } else {
-                // No key (unlikely to be here if main section is shown, but logic holds)
-                showApiKeySection();
+    clearCacheBtn.addEventListener('click', async () => {
+        const token = githubTokenInput.value.trim();
+        const gistId = gistIdInput.value.trim();
+
+        if (!token || !gistId) {
+            showError("GitHub Token and Gist ID are required to clear remote cache.");
+            return;
+        }
+
+        if (confirm("Are you sure you want to clear the remote Gist cache and local cache? This cannot be undone.")) {
+            clearCacheBtn.disabled = true;
+            clearCacheBtn.textContent = "Clearing...";
+
+            try {
+                // Clear Gist using input values
+                await updateGistContent(token, gistId, {});
+
+                // Clear Local (keep config)
+                const config = await chrome.storage.local.get(['openaiApiKey', 'githubToken', 'gistId']);
+                await chrome.storage.local.clear();
+                await chrome.storage.local.set(config);
+
+                clearCacheBtn.textContent = "✅ Cleared!";
+                setTimeout(() => {
+                    clearCacheBtn.textContent = "🗑️ Clear Remote Cache";
+                    clearCacheBtn.disabled = false;
+                }, 1500);
+            } catch (err) {
+                showError(`Failed to clear cache: ${err.message}`);
+                clearCacheBtn.textContent = "🗑️ Clear Remote Cache";
+                clearCacheBtn.disabled = false;
             }
-        });
+        }
     });
 
     let currentData = null;
@@ -184,13 +274,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateLoadingText("Requiring summary...");
                     const data = await summarizeWithOpenAI(apiKey, rawText, signal);
                     const timestamp = Date.now();
-                    // Cache the result
+
+                    // Cache the result locally
                     chrome.storage.local.set({ [cacheKey]: { data, timestamp } });
                     displaySummary(data, timestamp);
+
+                    // Auto-Sync to Gist
+                    chrome.storage.local.get(['githubToken', 'gistId'], async (res) => {
+                        if (res.githubToken && res.gistId) {
+                            try {
+                                await syncWithGist(res.githubToken, res.gistId);
+                                console.log('Auto-synced to Gist');
+                            } catch (syncErr) {
+                                console.error('Auto-sync failed:', syncErr);
+                                // Optionally show a non-blocking toast/indicator
+                            }
+                        }
+                    });
+
                 } catch (err) {
                     if (err.name === 'AbortError') {
-                        // Do nothing or show aborted state? 
-                        // Usually just resetting UI is fine, or showing "Aborted"
                         console.log('Fetch aborted');
                     } else {
                         showError(`OpenAI Error: ${err.message}`);
@@ -205,35 +308,38 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             if (err.name === 'AbortError') {
                 console.log('Fetch aborted');
-                hideLoading(); // Ensure loading is hidden on abort
-                summarizeBtn.classList.remove('hidden'); // Allow retry
+                hideLoading();
+                summarizeBtn.classList.remove('hidden');
             } else {
                 showError(err.message);
                 hideLoading();
-                summarizeBtn.classList.remove('hidden'); // Allow retry
+                summarizeBtn.classList.remove('hidden');
             }
         }
     }
 
-    function showApiKeySection() {
-        apiKeySection.classList.remove('hidden');
+    function showSettings() {
         mainSection.classList.add('hidden');
+        settingsSection.classList.remove('hidden');
+        openSettingsBtn.classList.add('hidden'); // Hide settings button in settings view
+
+        chrome.storage.local.get([
+            'openaiApiKey', 'githubToken', 'gistId',
+            'draft_openaiApiKey', 'draft_githubToken', 'draft_gistId'
+        ], (result) => {
+            // Prefer draft, then saved, then empty
+            apiKeyInput.value = result.draft_openaiApiKey !== undefined ? result.draft_openaiApiKey : (result.openaiApiKey || '');
+            githubTokenInput.value = result.draft_githubToken !== undefined ? result.draft_githubToken : (result.githubToken || '');
+            gistIdInput.value = result.draft_gistId !== undefined ? result.draft_gistId : (result.gistId || '');
+
+            handleInput(); // Validate immediately on show
+        });
     }
 
     function showMainSection() {
-        apiKeySection.classList.add('hidden');
+        settingsSection.classList.add('hidden');
         mainSection.classList.remove('hidden');
-        updateManageKeyButton();
-    }
-
-    function updateManageKeyButton() {
-        chrome.storage.local.get(['openaiApiKey'], (result) => {
-            if (result.openaiApiKey) {
-                manageKeyBtn.textContent = "Remove API Key";
-            } else {
-                manageKeyBtn.textContent = "Add API Key";
-            }
-        });
+        openSettingsBtn.classList.remove('hidden'); // Show settings button in main view
     }
 
     function updateLoadingText(text) {
@@ -404,5 +510,99 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             throw new Error("Failed to parse OpenAI response as JSON");
         }
+    }
+
+    async function updateGistContent(token, gistId, content) {
+        const GIST_FILENAME = 'summarizer_cache.json';
+        const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `token ${token}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                files: {
+                    [GIST_FILENAME]: {
+                        content: JSON.stringify(content)
+                    }
+                }
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to update Gist');
+        }
+    }
+
+    async function syncWithGist(token, gistId) {
+        const GIST_FILENAME = 'summarizer_cache.json';
+        const headers = {
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+        };
+
+        // 1. Fetch Gist Data
+        const getResponse = await fetch(`https://api.github.com/gists/${gistId}`, {
+            headers: headers
+        });
+
+        if (!getResponse.ok) {
+            throw new Error('Failed to fetch Gist');
+        }
+
+        const getData = await getResponse.json();
+        const file = getData.files[GIST_FILENAME];
+        if (!file) {
+            throw new Error(`File ${GIST_FILENAME} not found in Gist`);
+        }
+
+        let remoteCache = {};
+        try {
+            remoteCache = JSON.parse(file.content);
+        } catch (e) {
+            console.error('Failed to parse remote cache', e);
+            remoteCache = {};
+        }
+
+        // 3. Get Local Data
+        const localData = await new Promise(resolve => {
+            chrome.storage.local.get(null, (items) => {
+                resolve(items);
+            });
+        });
+
+        // 4. Merge Data
+        const mergedCache = { ...remoteCache };
+
+        // Merge local into remote (and track updates for local)
+        for (const [key, value] of Object.entries(localData)) {
+            if (key.startsWith('summary_')) {
+                if (!mergedCache[key] || (value.timestamp > mergedCache[key].timestamp)) {
+                    mergedCache[key] = value;
+                }
+            }
+        }
+
+        // 5. Update Gist
+        const updateResponse = await fetch(`https://api.github.com/gists/${gistId}`, {
+            method: 'PATCH',
+            headers: headers,
+            body: JSON.stringify({
+                files: {
+                    [GIST_FILENAME]: {
+                        content: JSON.stringify(mergedCache)
+                    }
+                }
+            })
+        });
+
+        if (!updateResponse.ok) {
+            throw new Error('Failed to update Gist');
+        }
+
+        // 6. Update Local Storage
+        await chrome.storage.local.set(mergedCache);
     }
 });

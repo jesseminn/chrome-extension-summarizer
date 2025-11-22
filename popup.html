@@ -12,27 +12,20 @@
   <div class="container">
     <h1>Summarizer</h1>
 
-    <div id="apiKeySection">
-      <label for="apiKey">OpenAI API Key</label>
-      <input type="password" id="apiKey" placeholder="sk-..." />
-      <button id="saveKeyBtn">Save Key</button>
-    </div>
-
     <div id="mainSection" class="hidden">
-      <div class="controls">
-        <button id="summarizeBtn" class="primary-btn">Summarize Page</button>
-        <button id="summarizeAgainBtn" class="secondary-btn hidden">🔄 Summarize Again</button>
-        <button id="copyBtn" class="secondary-btn hidden" style="margin-left: 10px;">📋 Copy</button>
-      </div>
-
       <div id="loading" class="hidden">
         <div class="spinner"></div>
-        <p id="loadingText">Fetching and summarizing...</p>
+        <p id="loadingText">Summarizing...</p>
         <button id="abortBtn" class="text-btn cancel-btn">Cancel</button>
       </div>
 
       <div id="result" class="hidden">
-        <div id="timestamp"></div>
+        <div id="timestamp" class="hidden"></div>
+        <div class="button-group">
+          <button id="summarizeBtn" class="primary-btn">Summarize Page</button>
+          <button id="summarizeAgainBtn" class="secondary-btn hidden">🔄 Summarize Again</button>
+          <button id="copyBtn" class="secondary-btn hidden">📋 Copy</button>
+        </div>
         <h3>Summary</h3>
         <div id="summaryBody" class="markdown-content"></div>
         <h3>Key Takeaways</h3>
@@ -44,9 +37,29 @@
       <div id="error" class="hidden"></div>
     </div>
 
+    <div id="settingsSection" class="hidden">
+      <h3>Settings</h3>
+
+      <label for="apiKey">OpenAI API Key</label>
+      <input type="password" id="apiKey" placeholder="sk-..." />
+
+      <label for="githubToken">GitHub Personal Access Token (gist scope)</label>
+      <input type="password" id="githubToken" placeholder="ghp_..." />
+
+      <label for="gistId">Gist ID</label>
+      <input type="text" id="gistId" placeholder="e.g. 8f3..." />
+
+      <button id="saveSettingsBtn" class="primary-btn" disabled>Save Settings</button>
+
+      <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+
+      <button id="clearCacheBtn" class="text-btn danger-btn hidden" style="width: 100%; text-align: center;">🗑️ Clear
+        Remote
+        Cache</button>
+    </div>
+
     <div class="footer">
-      <button id="manageKeyBtn" class="text-btn" style="margin-top: 20px; width: 100%; text-align: center;">Manage API
-        Key</button>
+      <button id="openSettingsBtn" class="text-btn" style="width: 100%; text-align: center;">⚙️ Settings</button>
     </div>
   </div>
   <script src="marked.min.js"></script>
