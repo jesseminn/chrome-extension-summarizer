@@ -11,7 +11,8 @@ CRITICAL INSTRUCTION:
 Structure:
 {
   "summary": "<markdown string, not array. use \\n for line breaks. around 100 words>",
-  "takeaways": "<markdown string, not array. use \\n for line breaks. 5-10 bullet points>"
+  "takeaways": "<markdown string, not array. use \\n for line breaks. 5-10 bullet points>",
+  "quotes": ["<markdown quote 1>", "... (1-3 quotes)"]
 }
 
 Article Content:

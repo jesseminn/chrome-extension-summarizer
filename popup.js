@@ -66,17 +66,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const summaryText = currentData.summary || '';
         const takeawaysText = currentData.takeaways || '';
+        const quotes = currentData.quotes;
 
         // Plain text (Markdown)
-        const plainText = `### Summary\n${summaryText}\n\n### Key Takeaways\n${takeawaysText}`;
+        let plainText = `### Summary\n${summaryText}\n\n### Key Takeaways\n${takeawaysText}`;
+        if (quotes) {
+            let quotesText = '';
+            if (Array.isArray(quotes)) {
+                quotesText = quotes.map(q => `> ${q}`).join('\n\n');
+            } else {
+                quotesText = quotes;
+            }
+            plainText += `\n\n### Quotes\n${quotesText}`;
+        }
 
         // HTML
-        const htmlContent = `
+        let htmlContent = `
             <h3>Summary</h3>
             ${marked.parse(summaryText)}
             <h3>Key Takeaways</h3>
             ${marked.parse(takeawaysText)}
         `;
+        if (quotes) {
+            let quotesHtml = '';
+            if (Array.isArray(quotes)) {
+                quotesHtml = quotes.map(q => `<blockquote>${marked.parse(q)}</blockquote>`).join('');
+            } else {
+                quotesHtml = marked.parse(quotes);
+            }
+            htmlContent += `
+                <h3>Quotes</h3>
+                ${quotesHtml}
+            `;
+        }
 
         try {
             const textBlob = new Blob([plainText], { type: 'text/plain' });
@@ -238,6 +260,15 @@ document.addEventListener('DOMContentLoaded', () => {
         summaryBody.innerHTML = marked.parse(data.summary || '');
         takeawaysBody.innerHTML = marked.parse(data.takeaways || '');
 
+        const quotesBody = document.getElementById('quotesBody');
+        if (quotesBody) {
+            if (Array.isArray(data.quotes)) {
+                quotesBody.innerHTML = data.quotes.map(quote => `<blockquote>${marked.parse(quote)}</blockquote>`).join('');
+            } else {
+                quotesBody.innerHTML = marked.parse(data.quotes || '');
+            }
+        }
+
         const timestampDiv = document.getElementById('timestamp');
         if (timestamp) {
             const date = new Date(timestamp);
@@ -251,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
         summarizeBtn.classList.add('hidden'); // Hide original summarize button
         summarizeAgainBtn.classList.remove('hidden'); // Show summarize again
 
-        if (data.summary || data.takeaways) {
+        if (data.summary || data.takeaways || data.quotes) {
             copyBtn.classList.remove('hidden'); // Show copy button only if content exists
         } else {
             copyBtn.classList.add('hidden');
