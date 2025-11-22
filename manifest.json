@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "Page Summarizer",
+    "name": "Summarizer",
     "version": "1.0",
     "description": "Summarize the current page using Jina.ai and OpenAI.",
     "permissions": [
