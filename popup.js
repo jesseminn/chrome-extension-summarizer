@@ -301,6 +301,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Cannot get current tab URL.');
             }
 
+            if (!isUrlSupported(tab.url)) {
+                showUnsupportedUrl('protocol');
+                hideLoading();
+                return;
+            }
+
             const cleanedUrl = cleanUrl(tab.url);
             const cacheKey = `summary_${cleanedUrl}`;
 
@@ -339,6 +345,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     updateLoadingText("Requiring summary...");
                     const data = await summarizeWithOpenAI(apiKey, rawText, signal);
+
+                    if (data.code !== 0) {
+                        showUnsupportedUrl('content', data.message);
+                        hideLoading();
+                        return;
+                    }
+
                     const timestamp = Date.now();
 
                     // Cache the result locally
@@ -541,6 +554,48 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             return url;
         }
+    }
+
+    function isUrlSupported(url) {
+        try {
+            const urlObj = new URL(url);
+            const protocol = urlObj.protocol;
+            const hostname = urlObj.hostname.toLowerCase();
+
+            // 1. Protocol Check
+            if (!['http:', 'https:'].includes(protocol)) {
+                return false;
+            }
+
+            // 2. Localhost Check
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return false;
+            }
+
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function showUnsupportedUrl(type, reason) {
+        let msg = '';
+        if (type === 'protocol') {
+            msg = `
+                <strong>Page Not Supported</strong><br><br>
+                We can only summarize public web pages (http/https).<br>
+                Internal browser pages and local files are not supported.
+            `;
+        } else if (type === 'content') {
+            const reasonText = reason || 'The content of this page could not be processed.';
+            msg = `
+                <strong>Unable to Summarize</strong><br><br>
+                ${reasonText}
+            `;
+        }
+
+        showError(msg);
+        errorDiv.innerHTML = msg;
     }
 
     const abortBtn = document.getElementById('abortBtn');
