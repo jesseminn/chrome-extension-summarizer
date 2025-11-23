@@ -7,8 +7,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const gistIdInput = document.getElementById('gistId');
 
     const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const backSettingsBtn = document.getElementById('backSettingsBtn');
     const clearCacheBtn = document.getElementById('clearCacheBtn');
     const openSettingsBtn = document.getElementById('openSettingsBtn');
+
+    let originalConfig = { apiKey: '', token: '', gistId: '' };
 
     const summarizeBtn = document.getElementById('summarizeBtn');
     const summarizeAgainBtn = document.getElementById('summarizeAgainBtn');
@@ -43,11 +46,29 @@ document.addEventListener('DOMContentLoaded', () => {
             draft_gistId: gistId
         });
 
-        if (apiKey && token && gistId) {
+        const isValid = apiKey && token && gistId;
+        const isDirty = apiKey !== originalConfig.apiKey ||
+            token !== originalConfig.token ||
+            gistId !== originalConfig.gistId;
+
+        const hasValidStoredConfig = originalConfig.apiKey && originalConfig.token && originalConfig.gistId;
+
+        // Back Button: Hidden if we don't have a valid stored config (onboarding)
+        if (hasValidStoredConfig) {
+            backSettingsBtn.classList.remove('hidden');
+        } else {
+            backSettingsBtn.classList.add('hidden');
+        }
+
+        // Save Button: Disabled if inputs invalid OR nothing changed
+        if (isValid && isDirty) {
             saveSettingsBtn.disabled = false;
         } else {
             saveSettingsBtn.disabled = true;
         }
+
+        // Ensure Save button is visible
+        saveSettingsBtn.classList.remove('hidden');
 
         if (token && gistId) {
             clearCacheBtn.classList.remove('hidden');
@@ -64,6 +85,37 @@ document.addEventListener('DOMContentLoaded', () => {
         showSettings();
     });
 
+    backSettingsBtn.addEventListener('click', async () => {
+        // Clear drafts so next time we open settings, we see saved config
+        await chrome.storage.local.remove(['draft_openaiApiKey', 'draft_githubToken', 'draft_gistId']);
+        showMainSection();
+    });
+
+    async function validateOpenAIKey(apiKey) {
+        try {
+            const response = await fetch('https://api.openai.com/v1/models', {
+                headers: { 'Authorization': `Bearer ${apiKey}` }
+            });
+            return response.ok;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    async function validateGitHubGist(token, gistId) {
+        try {
+            const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+            return response.ok;
+        } catch (e) {
+            return false;
+        }
+    }
+
     saveSettingsBtn.addEventListener('click', async () => {
         const apiKey = apiKeyInput.value.trim();
         const token = githubTokenInput.value.trim();
@@ -75,10 +127,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         saveSettingsBtn.disabled = true;
-        saveSettingsBtn.textContent = "Saving...";
+        saveSettingsBtn.textContent = "Validating...";
         hideError();
 
         try {
+            // Validate OpenAI Key
+            const isApiKeyValid = await validateOpenAIKey(apiKey);
+            if (!isApiKeyValid) {
+                throw new Error("Invalid OpenAI API Key. Please check your key.");
+            }
+
+            // Validate GitHub Token & Gist ID
+            const isGistValid = await validateGitHubGist(token, gistId);
+            if (!isGistValid) {
+                throw new Error("Invalid GitHub Token or Gist ID. Please check permissions and ID.");
+            }
+
+            saveSettingsBtn.textContent = "Saving...";
+
             // Save config
             await chrome.storage.local.set({
                 openaiApiKey: apiKey,
@@ -319,6 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showSettings() {
+        hideError(); // Clear any existing errors
         mainSection.classList.add('hidden');
         settingsSection.classList.remove('hidden');
         openSettingsBtn.classList.add('hidden'); // Hide settings button in settings view
@@ -327,6 +394,13 @@ document.addEventListener('DOMContentLoaded', () => {
             'openaiApiKey', 'githubToken', 'gistId',
             'draft_openaiApiKey', 'draft_githubToken', 'draft_gistId'
         ], (result) => {
+            // Store original config
+            originalConfig = {
+                apiKey: result.openaiApiKey || '',
+                token: result.githubToken || '',
+                gistId: result.gistId || ''
+            };
+
             // Prefer draft, then saved, then empty
             apiKeyInput.value = result.draft_openaiApiKey !== undefined ? result.draft_openaiApiKey : (result.openaiApiKey || '');
             githubTokenInput.value = result.draft_githubToken !== undefined ? result.draft_githubToken : (result.githubToken || '');
@@ -337,6 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showMainSection() {
+        hideError(); // Clear any existing errors
         settingsSection.classList.add('hidden');
         mainSection.classList.remove('hidden');
         openSettingsBtn.classList.remove('hidden'); // Show settings button in main view
@@ -351,6 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
         summarizeBtn.disabled = true;
         summarizeAgainBtn.disabled = true;
         copyBtn.disabled = true;
+        openSettingsBtn.classList.add('hidden'); // Hide settings button during summary
     }
 
     function hideLoading() {
@@ -358,6 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
         summarizeBtn.disabled = false;
         summarizeAgainBtn.disabled = false;
         copyBtn.disabled = false;
+        openSettingsBtn.classList.remove('hidden'); // Show settings button after summary
     }
 
     function displaySummary(data, timestamp) {

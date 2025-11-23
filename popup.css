@@ -44,6 +44,14 @@ button {
   transition: background-color 0.2s;
 }
 
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #ccc !important;
+  color: #666 !important;
+  border: 1px solid #bbb !important;
+}
+
 .primary-btn {
   background-color: #3498db;
   color: white;
@@ -263,4 +271,17 @@ button {
   border: 1px solid #ddd;
   border-radius: 4px;
   box-sizing: border-box;
+}
+
+#backSettingsBtn {
+  width: 100%;
+  background-color: #ecf0f1;
+  color: #7f8c8d;
+  border: 1px solid #bdc3c7;
+  margin-bottom: 10px;
+}
+
+#backSettingsBtn:hover {
+  background-color: #bdc3c7;
+  color: #2c3e50;
 }
