@@ -43,7 +43,7 @@ input[type="text"] {
 button {
   cursor: pointer;
   padding: 8px 16px;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 4px;
   font-size: 14px;
   transition: background-color 0.2s;
@@ -80,7 +80,7 @@ button:disabled {
 .secondary-btn {
   background-color: #34495e;
   color: white;
-  border: none;
+  border: 1px solid transparent;
   padding: 8px 16px;
   border-radius: 4px;
   font-size: 14px;
@@ -94,7 +94,7 @@ button:disabled {
 
 .text-btn {
   background: none;
-  border: none;
+  border: 1px solid transparent;
   color: #7f8c8d;
   cursor: pointer;
   font-size: 12px;

@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveSettingsBtn = document.getElementById('saveSettingsBtn');
     const backSettingsBtn = document.getElementById('backSettingsBtn');
     const clearCacheBtn = document.getElementById('clearCacheBtn');
+    const settingsSeparator = document.getElementById('settingsSeparator');
     const openSettingsBtn = document.getElementById('openSettingsBtn');
 
     let originalConfig = { apiKey: '', token: '', gistId: '' };
@@ -78,10 +79,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Ensure Save button is visible
         saveSettingsBtn.classList.remove('hidden');
 
-        if (token && gistId) {
+        if (originalConfig.token && originalConfig.gistId) {
             clearCacheBtn.classList.remove('hidden');
+            settingsSeparator.classList.remove('hidden');
         } else {
             clearCacheBtn.classList.add('hidden');
+            settingsSeparator.classList.add('hidden');
         }
     }
 
