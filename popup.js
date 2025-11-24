@@ -89,6 +89,23 @@ document.addEventListener('DOMContentLoaded', () => {
     githubTokenInput.addEventListener('input', handleInput);
     gistIdInput.addEventListener('input', handleInput);
 
+    // Password Toggle Logic
+    document.querySelectorAll('.toggle-password').forEach(icon => {
+        icon.addEventListener('click', (e) => {
+            const targetId = icon.getAttribute('data-target');
+            const targetInput = document.getElementById(targetId);
+
+            if (targetInput) {
+                const type = targetInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                targetInput.setAttribute('type', type);
+
+                // Toggle emoji
+                icon.textContent = type === 'text' ? '😳' : '🫣';
+                icon.style.opacity = type === 'text' ? '1' : '0.6';
+            }
+        });
+    });
+
     openSettingsBtn.addEventListener('click', () => {
         showSettings();
     });

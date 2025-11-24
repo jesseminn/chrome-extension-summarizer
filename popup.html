@@ -42,10 +42,16 @@
       <h3>Settings</h3>
 
       <label for="apiKey">OpenAI API Key</label>
-      <input type="password" id="apiKey" placeholder="sk-..." />
+      <div class="input-wrapper">
+        <input type="password" id="apiKey" placeholder="sk-..." />
+        <span class="toggle-password" data-target="apiKey" title="Show/Hide">🫣</span>
+      </div>
 
       <label for="githubToken">GitHub Personal Access Token (gist scope)</label>
-      <input type="password" id="githubToken" placeholder="ghp_..." />
+      <div class="input-wrapper">
+        <input type="password" id="githubToken" placeholder="ghp_..." />
+        <span class="toggle-password" data-target="githubToken" title="Show/Hide">🫣</span>
+      </div>
 
       <label for="gistId">Gist ID</label>
       <input type="text" id="gistId" placeholder="e.g. 8f3..." />

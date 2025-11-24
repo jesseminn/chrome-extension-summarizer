@@ -26,13 +26,18 @@ label {
   font-size: 12px;
 }
 
-input[type="password"] {
+input[type="password"],
+input[type="text"] {
   width: 100%;
   padding: 8px;
   margin-bottom: 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
   box-sizing: border-box;
+  height: 35px;
+  /* Fixed height to prevent jump */
+  font-family: inherit;
+  /* Ensure consistent font */
 }
 
 button {
@@ -264,14 +269,7 @@ button:disabled {
   text-decoration: none;
 }
 
-#gistId {
-  width: 100%;
-  padding: 8px;
-  margin-bottom: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
+
 
 #backSettingsBtn {
   width: 100%;
@@ -300,4 +298,34 @@ button:disabled {
   border-radius: 16px;
   font-size: 12px;
   font-weight: 500;
+}
+
+.input-wrapper {
+  position: relative;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.input-wrapper input {
+  padding-right: 35px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  font-size: 16px;
+  user-select: none;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  line-height: 1;
+}
+
+.toggle-password:hover {
+  opacity: 1;
 }
