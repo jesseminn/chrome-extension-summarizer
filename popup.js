@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const openSettingsBtn = document.getElementById('openSettingsBtn');
 
     let originalConfig = { apiKey: '', token: '', gistId: '' };
+    let allTags = [];
 
     const summarizeBtn = document.getElementById('summarizeBtn');
     const summarizeAgainBtn = document.getElementById('summarizeAgainBtn');
@@ -24,10 +25,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadingText = document.getElementById('loadingText');
 
     // Check for all required keys
-    chrome.storage.local.get(['openaiApiKey', 'githubToken', 'gistId'], (result) => {
+    // Check for all required keys
+    chrome.storage.local.get(['openaiApiKey', 'githubToken', 'gistId', 'allTags'], (result) => {
+        if (result.allTags) {
+            allTags = result.allTags;
+        }
+
         if (result.openaiApiKey && result.githubToken && result.gistId) {
             showMainSection();
             checkCache();
+            // Sync tags on load
+            syncTagsWithGist(result.githubToken, result.gistId).catch(err => console.error('Tag sync failed:', err));
         } else {
             showSettings();
         }
@@ -157,6 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Sync immediately
             await syncWithGist(token, gistId);
+            await syncTagsWithGist(token, gistId);
 
             saveSettingsBtn.textContent = "✅ Saved!";
             setTimeout(() => {
@@ -344,12 +353,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 try {
                     updateLoadingText("Requiring summary...");
-                    const data = await summarizeWithOpenAI(apiKey, rawText, signal);
+                    const data = await summarizeWithOpenAI(apiKey, rawText, signal, allTags);
 
                     if (data.code !== 0) {
                         showUnsupportedUrl('content', data.message);
                         hideLoading();
                         return;
+                    }
+
+                    // Handle Tags
+                    if (data.tags && Array.isArray(data.tags)) {
+                        const newTags = data.tags.filter(t => !allTags.includes(t));
+                        if (newTags.length > 0) {
+                            allTags = [...allTags, ...newTags].sort();
+                            await chrome.storage.local.set({ allTags });
+
+                            // Sync tags to Gist
+                            chrome.storage.local.get(['githubToken', 'gistId'], async (res) => {
+                                if (res.githubToken && res.gistId) {
+                                    syncTagsWithGist(res.githubToken, res.gistId).catch(err => console.error('Tag sync failed:', err));
+                                }
+                            });
+                        }
                     }
 
                     const timestamp = Date.now();
@@ -358,15 +383,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     chrome.storage.local.set({ [cacheKey]: { data, timestamp } });
                     displaySummary(data, timestamp);
 
-                    // Auto-Sync to Gist
+                    // Auto-Sync Cache to Gist
                     chrome.storage.local.get(['githubToken', 'gistId'], async (res) => {
                         if (res.githubToken && res.gistId) {
                             try {
                                 await syncWithGist(res.githubToken, res.gistId);
-                                console.log('Auto-synced to Gist');
+                                console.log('Auto-synced cache to Gist');
                             } catch (syncErr) {
-                                console.error('Auto-sync failed:', syncErr);
-                                // Optionally show a non-blocking toast/indicator
+                                console.error('Auto-sync cache failed:', syncErr);
                             }
                         }
                     });
@@ -455,6 +479,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // Parse markdown using marked
         summaryBody.innerHTML = marked.parse(data.summary || '');
         takeawaysBody.innerHTML = marked.parse(data.takeaways || '');
+
+        const tagsBody = document.getElementById('tagsBody');
+        if (tagsBody) {
+            tagsBody.innerHTML = ''; // Clear existing
+            if (data.tags && Array.isArray(data.tags) && data.tags.length > 0) {
+                data.tags.forEach(tag => {
+                    const span = document.createElement('span');
+                    span.className = 'tag-pill';
+                    span.textContent = tag;
+                    tagsBody.appendChild(span);
+                });
+                tagsBody.classList.remove('hidden');
+            } else {
+                tagsBody.classList.add('hidden');
+            }
+        }
 
         const quotesBody = document.getElementById('quotesBody');
         if (quotesBody) {
@@ -609,8 +649,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    async function summarizeWithOpenAI(apiKey, text, signal) {
-        const prompt = `${SUMMARY_PROMPT}${text.substring(0, 15000)}`;
+    async function summarizeWithOpenAI(apiKey, text, signal, existingTags = []) {
+        const prompt = `${getSummaryPrompt(existingTags)}${text.substring(0, 15000)}`;
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -736,5 +776,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 6. Update Local Storage
         await chrome.storage.local.set(mergedCache);
+    }
+    async function syncTagsWithGist(token, gistId) {
+        const TAGS_FILENAME = 'summarizer_tags.json';
+        const headers = {
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+        };
+
+        try {
+            // 1. Fetch Gist Data
+            const getResponse = await fetch(`https://api.github.com/gists/${gistId}`, { headers });
+            if (!getResponse.ok) throw new Error('Failed to fetch Gist for tags');
+
+            const getData = await getResponse.json();
+            const file = getData.files[TAGS_FILENAME];
+
+            let remoteTags = [];
+            if (file) {
+                try {
+                    remoteTags = JSON.parse(file.content).tags || [];
+                } catch (e) {
+                    console.error('Failed to parse remote tags', e);
+                }
+            }
+
+            // 2. Merge Tags (Union of local and remote)
+            const mergedTags = [...new Set([...allTags, ...remoteTags])].sort();
+
+            // Update local state if changed
+            if (mergedTags.length !== allTags.length) {
+                allTags = mergedTags;
+                await chrome.storage.local.set({ allTags: mergedTags });
+            }
+
+            // 3. Update Gist if remote is different (or if file didn't exist)
+            const remoteTagsSet = new Set(remoteTags);
+            const isDifferent = mergedTags.length !== remoteTags.length || !mergedTags.every(t => remoteTagsSet.has(t));
+
+            if (isDifferent || !file) {
+                await fetch(`https://api.github.com/gists/${gistId}`, {
+                    method: 'PATCH',
+                    headers: headers,
+                    body: JSON.stringify({
+                        files: {
+                            [TAGS_FILENAME]: {
+                                content: JSON.stringify({ tags: mergedTags })
+                            }
+                        }
+                    })
+                });
+            }
+        } catch (err) {
+            console.error('Sync tags error:', err);
+        }
     }
 });
